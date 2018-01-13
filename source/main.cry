@@ -1,0 +1,386 @@
+﻿import Game;
+import Graphics2D;
+import Math;
+import Random;
+
+const FPS = 30;
+const X_RES = 400;
+const Y_RES = 400;
+
+const N = 8;
+
+const CELL_WIDTH = X_RES / N;
+const CELL_HEIGHT = Y_RES / N;
+
+const CELL_PADDING = 5;
+
+const MAX_LOOKAHEAD = 3;
+
+// Fisher-Yates shuffle a list.
+function shuffle(list) {
+	for (i = 0; i < list.length - 1; ++i) {
+		j = Random.randomInt(i, list.length);
+		t = list[i];
+		list[i] = list[j];
+		list[j] = t;
+	}
+}
+
+class Reversi {
+	field lookahead;
+	field board;
+	field currentPlayer;
+	field passed;
+	field gameOver;
+	field validMoves;
+	
+	constructor(lookahead) {
+		this.lookahead = lookahead;
+		
+		this.board = [];
+		for (row = 0; row < N; ++row) {
+			this.board.add([]);
+			for (col = 0; col < N; ++col) {
+				this.board[row].add(0);
+			}
+		}
+		this.board[3][3] = -1;
+		this.board[4][3] = 1;
+		this.board[3][4] = 1;
+		this.board[4][4] = -1;
+		
+		this.currentPlayer = 1;
+		this.passed = false;
+		this.gameOver = false;
+		this.validMoves = this.getValidMoves();
+	}
+	
+	function clone() {
+		newReversi = new Reversi(this.lookahead);
+		
+		newReversi.board = [];
+		for (i = 0; i < this.board.length; ++i) {
+			newReversi.board.add(this.board[i].clone());
+		}
+		
+		newReversi.currentPlayer = this.currentPlayer;
+		newReversi.passed = this.passed;
+		newReversi.gameOver = this.gameOver;
+		
+		newReversi.validMoves = [];
+		for (i = 0; i < this.validMoves.length; ++i) {
+			newReversi.validMoves.add(this.validMoves[i].clone());
+		}
+
+		return newReversi;
+	}
+
+	function isValidMove(move) {
+		row = move[0];
+		col = move[1];
+		if (this.board[row][col] != 0) {
+			return false;
+		}
+		deltas = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]];
+		for (i = 0; i < deltas.length; ++i) {
+			dRow = deltas[i][0];
+			dCol = deltas[i][1];
+
+			fRow = row + dRow;
+			fCol = col + dCol;
+			foundOther = false;
+			while (fRow >= 0 && fRow < N && fCol >= 0 && fCol < N && this.board[fRow][fCol] == -this.currentPlayer) {
+				foundOther = true;
+				fRow += dRow;
+				fCol += dCol;
+			}			
+			if (foundOther && fRow >= 0 && fRow < N && fCol >= 0 && fCol < N && this.board[fRow][fCol] == this.currentPlayer) {
+				return true;
+			}
+		}
+		return false;
+	}
+	
+	function getValidMoves() {
+		validMoves = [];
+		for (row = 0; row < N; ++row) {
+			for (col = 0; col < N; ++col) {
+				if (this.isValidMove([row, col])) {
+					validMoves.add([row, col]);
+				}
+			}
+		}
+		return validMoves;
+	}
+	
+	function getBestMove(player) {
+		if (this.validMoves.length == 0) {
+			// No valid moves. Return null.
+			return null;
+		} else if (this.validMoves.length == 1) {
+			// Only one option; no need to check its score.
+			return this.validMoves[0];
+		} else {
+			// Find best move.
+			shuffle(this.validMoves);
+			bestMove = this.validMoves[0];
+			bestScore = this.getMoveScore(player, bestMove);
+			for (i = 1; i < this.validMoves.length; ++i) {
+				currentScore = this.getMoveScore(player, this.validMoves[i]);
+				if (currentScore > bestScore) {
+					bestMove = this.validMoves[i];
+					bestScore = currentScore;
+				}
+			}
+			return bestMove;
+		}
+	}
+	
+	function autoPlay() {
+		bestMove = this.getBestMove(this.currentPlayer);
+		if (bestMove == null) {
+			// No valid moves. Pass.
+			this.pass();
+		} else {
+			// Play best move.
+			this.play(bestMove);
+		}
+	}
+	
+	function play(move) {
+		row = move[0];
+		col = move[1];
+		if (this.isValidMove(move)) {
+			deltas = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]];
+			for (i = 0; i < deltas.length; ++i) {
+				dRow = deltas[i][0];
+				dCol = deltas[i][1];
+				
+				fRow = row + dRow;
+				fCol = col + dCol;
+				foundOther = false;
+				while (fRow >= 0 && fRow < N && fCol >= 0 && fCol < N && this.board[fRow][fCol] == -this.currentPlayer) {
+					foundOther = true;
+					fRow += dRow;
+					fCol += dCol;
+				}
+				if (foundOther && fRow >= 0 && fRow < N && fCol >= 0 && fCol < N && this.board[fRow][fCol] == this.currentPlayer) {
+					writeRow = row + dRow;
+					writeCol = col + dCol;
+					while (writeRow != fRow || writeCol != fCol) {
+						this.board[writeRow][writeCol] = this.currentPlayer;
+						writeRow += dRow;
+						writeCol += dCol;
+					}
+				}
+			}
+			
+			this.board[row][col] = this.currentPlayer;
+			this.currentPlayer = -this.currentPlayer;
+			
+			this.passed = false;
+			
+			this.validMoves = this.getValidMoves();
+		}
+	}
+
+	function pass() {
+		this.currentPlayer = -this.currentPlayer;
+		if (this.passed) {
+			this.gameOver = true;
+		} else {
+			this.passed = true;
+			this.validMoves = this.getValidMoves();
+		}
+	}
+
+	function getScores() {
+		score = {1: 0, -1: 0};
+		for (row = 0; row < N; ++row) {
+			for (col = 0; col < N; ++col) {
+				space = this.board[row][col];
+				if (space != 0) {
+					++score[space];
+				}
+			}
+		}
+		return score;
+	}
+
+	function getMoveScore(player, move) {
+		// Speculatively play the move.
+		afterMove = this.clone();
+		afterMove.play(move);
+		// Reduce lookahead by 1 for each speculative move.
+		--afterMove.lookahead;
+		
+		if (this.lookahead == 0) {
+			// No more recursion; report score based on current board state.
+			scores = afterMove.getScores();
+			return scores[player] - scores[-player];
+		} else {
+			// If there are no valid moves, pass until either there are or the game is over.
+			if (afterMove.validMoves.length == 0) {
+				while (!afterMove.gameOver && afterMove.validMoves.length == 0) {
+					afterMove.pass();
+				}
+				if (afterMove.gameOver) {
+					// Game over; report score based on final score.
+					scores = afterMove.getScores();
+					return scores[player] - scores[-player];
+				}
+			}
+			
+			// The score of this move is the score of the best follow-up move.
+			score = afterMove.getMoveScore(player, afterMove.validMoves[0]);
+			for (i = 1; i < afterMove.validMoves.length; ++i) {
+				newScore = afterMove.getMoveScore(player, afterMove.validMoves[i]);
+				if (newScore > score) {
+					score = newScore;
+				}
+			}
+			return score;
+		}
+	}
+	
+	function draw() {
+		Graphics2D.Draw.fill(0, 64, 0);
+		for (row = 0; row < N; ++row) {
+			for (col = 0; col < N; ++col) {
+				Graphics2D.Draw.rectangle(1 + col * CELL_WIDTH, 1 + row * CELL_HEIGHT, 48, 48, 0, 128, 0);
+				if (this.board[row][col] != 0) {
+					left = col * CELL_WIDTH + CELL_PADDING;
+					top = row * CELL_HEIGHT + CELL_PADDING;
+					width = CELL_WIDTH - 2 * CELL_PADDING;
+					height = CELL_HEIGHT - 2 * CELL_PADDING;
+					color = this.board[row][col] == 1 ? [0, 0, 0] : [255, 255, 255];
+					Graphics2D.Draw.ellipse(left, top, width, height, color[0], color[1], color[2]);
+				}
+			}
+		}
+		for (i = 0; i < this.validMoves.length; ++i) {
+			row = this.validMoves[i][0];
+			col = this.validMoves[i][1];
+			color = this.currentPlayer == 1 ? [0, 96, 0] : [64, 160, 64];
+			left = col * CELL_WIDTH + CELL_PADDING;
+			top = row * CELL_HEIGHT + CELL_PADDING;
+			width = CELL_WIDTH - 2 * CELL_PADDING;
+			height = CELL_HEIGHT - 2 * CELL_PADDING;
+			Graphics2D.Draw.ellipse(left, top, width, height, color[0], color[1], color[2]);
+		}
+	}
+}
+
+function main() {
+	window = new Game.GameWindow("Reversi", FPS, X_RES, Y_RES);
+	
+	state = "menu";
+	lookahead = 1;
+
+	programRunning = true;
+	while (programRunning) {
+		input =
+			{ "left click": false
+			, "left arrow": false
+			, "right arrow": false
+			, "down arrow": false
+			, "up arrow": false
+			, "enter": false
+			};
+		click_x = 0;
+		click_y = 0;
+		scroll = 0;
+		eventList = window.pumpEvents();
+		for (i = 0; i < eventList.length; i++) {
+			event = eventList[i];
+			if (event.type == Game.EventType.QUIT) {
+				programRunning = false;
+			} else if (event.type == Game.EventType.KEY_DOWN) {
+				if (event.key == Game.KeyboardKey.F2) {
+					// Restart game.
+					state = "menu";
+				} else if (event.key == Game.KeyboardKey.LEFT) {
+					input["left arrow"] = true;
+				} else if (event.key == Game.KeyboardKey.RIGHT) {
+					input["right arrow"] = true;
+				} else if (event.key == Game.KeyboardKey.UP) {
+					input["up arrow"] = true;
+				} else if (event.key == Game.KeyboardKey.DOWN) {
+					input["down arrow"] = true;
+				} else if (event.key == Game.KeyboardKey.ENTER) {
+					input["enter"] = true;
+				}
+			} else if (event.type == Game.EventType.MOUSE_LEFT_DOWN) {
+				input["left click"] = true;
+				click_x = event.x;
+				click_y = event.y;
+			} else if (event.type == Game.EventType.MOUSE_SCROLL) {
+				scroll = event.amount;
+			}
+		}
+
+		if (state == "menu") {
+			if (input["left arrow"]) {
+				--lookahead;
+			}
+			if (input["right arrow"]) {
+				++lookahead;
+			}
+			if (input["up arrow"]) {
+				++lookahead;
+			}
+			if (input["down arrow"]) {
+				--lookahead;
+			}
+			lookahead += scroll;
+			lookahead %= (MAX_LOOKAHEAD + 1);
+			if (input["left click"] || input["enter"]) {
+				reversi = new Reversi(lookahead);
+				state = "play";
+			}
+			// Draw menu.
+			Graphics2D.Draw.fill(0, 128, 0);
+			for (i = 0; i <= MAX_LOOKAHEAD; ++i) {
+				left = X_RES / 2 + CELL_PADDING + (i - (MAX_LOOKAHEAD + 1) / 2.0) * CELL_WIDTH;
+				top = Y_RES / 2 - CELL_HEIGHT / 2 + CELL_PADDING;
+				width = CELL_WIDTH - 2 * CELL_PADDING;
+				height = CELL_HEIGHT - 2 * CELL_PADDING;
+				color = i <= lookahead ? [255, 255, 255] : [0, 0, 0];
+				Graphics2D.Draw.ellipse(left, top, width, height, color[0], color[1], color[2]);
+			}
+		} else if (state == "play") {
+			if (reversi.gameOver) {
+				scores = reversi.getScores();
+				to_remove_total = Math.min(scores[1], scores[-1]);
+				to_remove = {0: 0, 1: to_remove_total, -1: to_remove_total};
+				for (row = 0; row < N; ++row) {
+					for (col = 0; col < N; ++col) {
+						space = reversi.board[row][col];
+						if (to_remove[space] > 0) {
+							reversi.board[row][col] = 0;
+							--to_remove[space];
+						}
+					}
+				}
+			} else {
+				if (reversi.currentPlayer == -1) {
+					// AI's turn.
+					reversi.autoPlay();
+				} else if (reversi.currentPlayer == 1) {
+					// Player's turn.
+					if (reversi.validMoves.length > 0) {
+						if (input["left click"]) {
+							move = [click_y / CELL_HEIGHT, click_x / CELL_WIDTH];
+							reversi.play(move);
+						}
+					} else {
+						// No valid moves. Pass.
+						reversi.pass();
+					}
+				}
+			}
+			reversi.draw();
+		}
+		window.clockTick();
+	}
+}
