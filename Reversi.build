@@ -1,7 +1,7 @@
 ﻿<build>
 	<projectname>Reversi</projectname>
 	<title>Reversi</title>
-	<description>Enter description of Reversi</description>
+	<description>Classic Reversi, player vs. AI.</description>
 	<icon>assets/icon32.png,assets/icon256.png</icon>
 
 	<source>source</source>
