@@ -1,0 +1,304 @@
+import Graphics2D;
+import Graphics2DText;
+import Math;
+import Random;
+
+// Fisher-Yates shuffle a list.
+function shuffle(list) {
+	for (i = 0; i < list.length - 1; ++i) {
+		j = Random.randomInt(i, list.length);
+		t = list[i];
+		list[i] = list[j];
+		list[j] = t;
+	}
+}
+
+// An instance of a game of Reversi.
+class Reversi {
+	field board; // The game board as a 2D array of pieces: EMPTY, BLACK, or WHITE.
+	field currentPlayer; // BLACK or WHITE.
+	field passed; // Whether the previous move was a pass.
+	field gameOver; // Whether the game has ended (two consecutive passes).
+	field validMoves; // The list of valid moves for the current player.
+
+	// Constructs a new instance of Reversi.
+	constructor() {
+		this.board = [];
+		for (row = 0; row < N; ++row) {
+			this.board.add([]);
+			for (col = 0; col < N; ++col) {
+				this.board[row].add(EMPTY);
+			}
+		}
+		this.board[N / 2 - 1][N / 2 - 1] = WHITE;
+		this.board[N / 2][N / 2 - 1] = BLACK;
+		this.board[N / 2 - 1][N / 2] = BLACK;
+		this.board[N / 2][N / 2] = WHITE;
+
+		this.currentPlayer = BLACK;
+		this.passed = false;
+		this.gameOver = false;
+		this.refreshValidMoves();
+	}
+
+	// Returns a deep copy of this game state.
+	function clone() {
+		newReversi = new Reversi();
+
+		newReversi.board = [];
+		for (i = 0; i < this.board.length; ++i) {
+			newReversi.board.add(this.board[i].clone());
+		}
+
+		newReversi.currentPlayer = this.currentPlayer;
+		newReversi.passed = this.passed;
+		newReversi.gameOver = this.gameOver;
+
+		newReversi.validMoves = [];
+		for (i = 0; i < this.validMoves.length; ++i) {
+			newReversi.validMoves.add(this.validMoves[i].clone());
+		}
+
+		return newReversi;
+	}
+
+	// Computes whether the given move is valid for the current player.
+	function isValidMove(move) {
+		row = move[0];
+		col = move[1];
+		if (this.board[row][col] != 0) {
+			return false;
+		}
+		deltas = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]];
+		for (i = 0; i < deltas.length; ++i) {
+			dRow = deltas[i][0];
+			dCol = deltas[i][1];
+
+			fRow = row + dRow;
+			fCol = col + dCol;
+			foundOther = false;
+			while (fRow >= 0 && fRow < N && fCol >= 0 && fCol < N && this.board[fRow][fCol] == -this.currentPlayer) {
+				foundOther = true;
+				fRow += dRow;
+				fCol += dCol;
+			}			
+			if (foundOther && fRow >= 0 && fRow < N && fCol >= 0 && fCol < N && this.board[fRow][fCol] == this.currentPlayer) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	// Refreshes the list of valid moves.
+	function refreshValidMoves() {
+		this.validMoves = [];
+		for (row = 0; row < N; ++row) {
+			for (col = 0; col < N; ++col) {
+				if (this.isValidMove([row, col])) {
+					this.validMoves.add([row, col]);
+				}
+			}
+		}
+	}
+
+	// Heuristically evaluates the board with respect to the current player.
+	function evaluateBoard()
+	{
+		scores = this.getScores();
+		if (scores[-this.currentPlayer] == 0) {
+			// Eliminating the opponent is the best possible outcome.
+			return MAX_VALUE;
+		} else if (N == 8) {
+			// Microsoft's Reversi heuristic position value table, via http://www.samsoft.org.uk/reversi/strategy.htm
+			positionValueTable =
+				[ [99,  -8,  8,  6,  6,  8,  -8, 99]
+				, [-8, -24, -4, -3, -3, -4, -24, -8]
+				, [ 8,  -4,  7,  4,  4,  7,  -4,  8]
+				, [ 6,  -3,  4,  0,  0,  4,  -3,  6]
+				, [ 6,  -3,  4,  0,  0,  4,  -3,  6]
+				, [ 8,  -4,  7,  4,  4,  7,  -4,  8]
+				, [-8, -24, -4, -3, -3, -4, -24, -8]
+				, [99,  -8,  8,  6,  6,  8,  -8, 99]
+				];
+
+				value = 0;
+			for (row = 0; row < N; ++row) {
+				for (col = 0; col < N; ++col) {
+					value += this.currentPlayer * positionValueTable[row][col];
+				}
+			}
+			return value;
+		} else {
+			// Fall-back heuristic for non-8x8 boards.
+			scores = this.getScores();
+			return scores[this.currentPlayer] - scores[-this.currentPlayer];
+		}
+	}
+
+	// Computes the value of this game state.
+	// maximize: Whether to maximize or minimize the score for the current player.
+	// lookahead: The maximum number of recursive calls to make.
+	// alpha: The best value found so far for the player we're maximizing.
+	// beta: The worst value found so far for the player we're minimizing.
+	function getValue(maximize, lookahead, alpha, beta) {
+		if (lookahead == 0 || this.gameOver) {
+			// End of recursive search. Report value based on current board state.
+			currentPlayerValue = this.evaluateBoard();
+			return maximize ? -currentPlayerValue : currentPlayerValue;
+		}
+		if (this.validMoves.length == 0) {
+			// Pass.
+			return this.clone().pass().getValue(!maximize, lookahead, alpha, beta);
+		}
+
+		if (maximize) {
+			// Maximize AI's value.
+			value = MIN_VALUE;
+			for (i = 0; i < this.validMoves.length; ++i) {
+				value = Math.max(value, this.clone().play(this.validMoves[i]).getValue(false, lookahead - 1, alpha, beta));
+				alpha = Math.max(alpha, value);
+				if (beta <= alpha) {
+					break;
+				}
+			}
+		} else {
+			// Minimize opponent's value.
+			value = MAX_VALUE;
+			for (i = 0; i < this.validMoves.length; ++i) {
+				value = Math.min(value, this.clone().play(this.validMoves[i]).getValue(true, lookahead - 1, alpha, beta));
+				beta = Math.min(alpha, value);
+				if (beta <= alpha) {
+					break;
+				}
+			}
+		}
+		return value;
+	}
+
+	// Plays automatically for the current player.
+	function autoPlay(lookahead) {
+		if (this.validMoves.length == 0) {
+			// No valid moves. Pass.
+			this.pass();
+		} else if (this.validMoves.length == 1) {
+			// Only one option; no need to check its value.
+			this.play(this.validMoves[0]);
+		} else {
+			if (lookahead == -1) {
+				// Special case; choose a move blindly.
+				this.play(this.validMoves[Random.randomInt(0, this.validMoves.length)]);
+			} else {
+				// Find and play the "best" move.
+				bestValue = MIN_VALUE;
+				shuffle(this.validMoves); // Break ties randomly.
+				for (i = 0; i < this.validMoves.length; ++i) {
+					currentValue = this.clone().play(this.validMoves[i]).getValue(true, lookahead, MIN_VALUE, MAX_VALUE);
+					if (currentValue > bestValue) {
+						bestMove = this.validMoves[i];
+						bestValue = currentValue;
+					}
+				}
+				this.play(bestMove);
+			}
+		}
+	}
+
+	// Causes the current player to attempt to play the given move. Returns this.
+	function play(move) {
+		row = move[0];
+		col = move[1];
+		if (this.isValidMove(move)) {
+			deltas = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]];
+			for (i = 0; i < deltas.length; ++i) {
+				dRow = deltas[i][0];
+				dCol = deltas[i][1];
+
+				fRow = row + dRow;
+				fCol = col + dCol;
+				foundOther = false;
+				while (fRow >= 0 && fRow < N && fCol >= 0 && fCol < N && this.board[fRow][fCol] == -this.currentPlayer) {
+					foundOther = true;
+					fRow += dRow;
+					fCol += dCol;
+				}
+				if (foundOther && fRow >= 0 && fRow < N && fCol >= 0 && fCol < N && this.board[fRow][fCol] == this.currentPlayer) {
+					writeRow = row + dRow;
+					writeCol = col + dCol;
+					while (writeRow != fRow || writeCol != fCol) {
+						this.board[writeRow][writeCol] = this.currentPlayer;
+						writeRow += dRow;
+						writeCol += dCol;
+					}
+				}
+			}
+
+			this.board[row][col] = this.currentPlayer;
+			this.currentPlayer = -this.currentPlayer;
+
+			this.passed = false;
+
+			this.refreshValidMoves();
+		}
+		return this;
+	}
+
+	// Causes the current player to pass, ending the game if the previous player also passed. Returns this.
+	function pass() {
+		this.currentPlayer = -this.currentPlayer;
+		if (this.passed) {
+			this.gameOver = true;
+		} else {
+			this.passed = true;
+			this.refreshValidMoves();
+		}
+		return this;
+	}
+
+	// Computes the number of pieces for each player as a dictionary from player to pieces.
+	function getScores() {
+		score = {BLACK: 0, WHITE: 0};
+		for (row = 0; row < N; ++row) {
+			for (col = 0; col < N; ++col) {
+				space = this.board[row][col];
+				if (space != 0) {
+					++score[space];
+				}
+			}
+		}
+		return score;
+	}
+
+	// Draws the game board and move hints.
+	function draw() {
+		Graphics2D.Draw.fill(0, 64, 0);
+		// Draw the board and pieces.
+		for (row = 0; row < N; ++row) {
+			for (col = 0; col < N; ++col) {
+				// Draw box.
+				left = 1 + col * CELL_WIDTH;
+				top = 1 + row * CELL_HEIGHT;
+				Graphics2D.Draw.rectangle(left, top, CELL_WIDTH - 2, CELL_HEIGHT - 2, 0, 128, 0);
+				// Draw piece.
+				if (this.board[row][col] != 0) {
+					left = col * CELL_WIDTH + CELL_PADDING;
+					top = row * CELL_HEIGHT + CELL_PADDING;
+					width = CELL_WIDTH - 2 * CELL_PADDING;
+					height = CELL_HEIGHT - 2 * CELL_PADDING;
+					color = this.board[row][col] == BLACK ? [0, 0, 0] : [255, 255, 255];
+					Graphics2D.Draw.ellipse(left, top, width, height, color[0], color[1], color[2]);
+				}
+			}
+		}
+		// Draw valid moves.
+		for (i = 0; i < this.validMoves.length; ++i) {
+			row = this.validMoves[i][0];
+			col = this.validMoves[i][1];
+			color = this.currentPlayer == BLACK ? [0, 96, 0] : [64, 160, 64];
+			left = col * CELL_WIDTH + CELL_PADDING;
+			top = row * CELL_HEIGHT + CELL_PADDING;
+			width = CELL_WIDTH - 2 * CELL_PADDING;
+			height = CELL_HEIGHT - 2 * CELL_PADDING;
+			Graphics2D.Draw.ellipse(left, top, width, height, color[0], color[1], color[2]);
+		}
+	}
+}
