@@ -105,10 +105,16 @@ class Reversi {
 	function evaluateBoard()
 	{
 		scores = this.getScores();
-		if (scores[-this.currentPlayer] == 0) {
-			// Eliminating the opponent is the best possible outcome.
+		if (this.gameOver && scores[this.currentPlayer] > scores[-this.currentPlayer]) {
+			// Winning is the best possible outcome.
 			return MAX_VALUE;
-		} else if (N == 8) {
+		}
+		value = 0;
+
+		// Mobility bonus.
+		value += 2 * this.validMoves.length;
+		
+		if (N == 8) {
 			// Microsoft's Reversi heuristic position value table, via http://www.samsoft.org.uk/reversi/strategy.htm
 			positionValueTable =
 				[ [99,  -8,  8,  6,  6,  8,  -8, 99]
@@ -120,19 +126,21 @@ class Reversi {
 				, [-8, -24, -4, -3, -3, -4, -24, -8]
 				, [99,  -8,  8,  6,  6,  8,  -8, 99]
 				];
-
-				value = 0;
 			for (row = 0; row < N; ++row) {
 				for (col = 0; col < N; ++col) {
-					value += this.currentPlayer * positionValueTable[row][col];
+					space = this.board[row][col];
+					if (space == this.currentPlayer) {
+						value += positionValueTable[row][col];
+					} else if (space == -this.currentPlayer) {
+						value -= positionValueTable[row][col];
+					}
 				}
 			}
-			return value;
 		} else {
 			// Fall-back heuristic for non-8x8 boards.
-			scores = this.getScores();
-			return scores[this.currentPlayer] - scores[-this.currentPlayer];
+			value += scores[this.currentPlayer] - scores[-this.currentPlayer];
 		}
+		return value;
 	}
 
 	// Computes the value of this game state.
@@ -193,7 +201,7 @@ class Reversi {
 				shuffle(this.validMoves); // Break ties randomly.
 				for (i = 0; i < this.validMoves.length; ++i) {
 					currentValue = this.clone().play(this.validMoves[i]).getValue(true, lookahead, MIN_VALUE, MAX_VALUE);
-					if (currentValue > bestValue) {
+					if (currentValue >= bestValue) {
 						bestMove = this.validMoves[i];
 						bestValue = currentValue;
 					}

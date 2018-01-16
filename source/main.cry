@@ -21,7 +21,7 @@ const BUTTON_PADDING = 10;
 const BUTTON_BORDER = 3;
 const SELECTOR_RADIUS = 30;
 
-const MAX_AI_LEVEL = 4;
+const MAX_AI_LEVEL = 6;
 
 const EMPTY = 0;
 const BLACK = 1;
@@ -82,9 +82,14 @@ function main() {
 	titleImage = titleFont.render("Reversi");
 	gameOverImage = whiteFont.render("Game Over");
 	playButtonTextImage = whiteFont.render("Play!");
+	tourneyButtonTextImage = whiteFont.render("Tourney");
 
 	blackImage = whiteFont.render(getSelectorText(players[0]));
 	whiteImage = blackFont.render(getSelectorText(players[1]));
+
+	tourneyMode = true;
+	blackWins = 0;
+	whiteWins = 0;
 
 	programRunning = true;
 	while (programRunning) {
@@ -97,7 +102,9 @@ function main() {
 				programRunning = false;
 			} else if (event.type == Game.EventType.KEY_DOWN) {
 				if (event.key == Game.KeyboardKey.F2) {
-					// Restart game.
+					// Restart game and reset stats.
+					blackWins = 0;
+					whiteWins = 0;
 					gameState = GameState.SELECTOR;
 				} else if (event.key == Game.KeyboardKey.LEFT) {
 					input.left_arrow = true;
@@ -123,17 +130,34 @@ function main() {
 			playButtonTop = Y_RES / 2 - playButtonTextImage.height / 2 - BUTTON_PADDING;
 			playButtonWidth = playButtonTextImage.width + 2 * BUTTON_PADDING;
 			playButtonHeight = playButtonTextImage.height + 2 * BUTTON_PADDING;
-			
+
+			tourneyButtonLeft = X_RES / 2 - tourneyButtonTextImage.width / 2 - BUTTON_PADDING;
+			tourneyButtonTop = 3 * Y_RES / 4 - tourneyButtonTextImage.height / 2 - BUTTON_PADDING;
+			tourneyButtonWidth = tourneyButtonTextImage.width + 2 * BUTTON_PADDING;
+			tourneyButtonHeight = tourneyButtonTextImage.height + 2 * BUTTON_PADDING;
+
 			hoveringPlay = true;
 			hoveringPlay = hoveringPlay && input.mouse_x >= playButtonLeft;
 			hoveringPlay = hoveringPlay && input.mouse_x < playButtonLeft + playButtonTextImage.width + 2 * BUTTON_PADDING;
 			hoveringPlay = hoveringPlay && input.mouse_y >= playButtonTop;
 			hoveringPlay = hoveringPlay && input.mouse_y < playButtonTop + playButtonTextImage.height + 2 * BUTTON_PADDING;
-			
+
+			hoveringTourney = true;
+			hoveringTourney = hoveringTourney && input.mouse_x >= tourneyButtonLeft;
+			hoveringTourney = hoveringTourney && input.mouse_x < tourneyButtonLeft + tourneyButtonTextImage.width + 2 * BUTTON_PADDING;
+			hoveringTourney = hoveringTourney && input.mouse_y >= tourneyButtonTop;
+			hoveringTourney = hoveringTourney && input.mouse_y < tourneyButtonTop + tourneyButtonTextImage.height + 2 * BUTTON_PADDING;
+
 			if (input.left_click) {
 				if (hoveringPlay) {
 					reversi = new Reversi();
 					gameState = GameState.PLAYING;
+					tourneyMode = false;
+				} else if (hoveringTourney) {
+					reversi = new Reversi();
+					gameState = GameState.PLAYING;
+					tourneyMode = true;
+					print(players[0] + " vs. " + players[1] + "!");
 				} else if (distanceSquared([input.mouse_x, input.mouse_y], [X_RES / 4, Y_RES / 2]) < SELECTOR_RADIUS ** 2) {
 					if (players[0] == "human") {
 						players[0] = 0;
@@ -160,24 +184,6 @@ function main() {
 			// Draw title.
 			drawImageCentered(titleImage, X_RES / 2, Y_RES / 4);
 
-			// Draw play button.
-			Graphics2D.Draw.rectangle
-				( playButtonLeft
-				, playButtonTop
-				, playButtonWidth
-				, playButtonHeight
-				, 0, 0, 0
-				);
-			color = hoveringPlay ? [192, 192, 192] : [128, 128, 128];
-			Graphics2D.Draw.rectangle
-				( playButtonLeft + BUTTON_BORDER
-				, playButtonTop + BUTTON_BORDER
-				, playButtonWidth - 2 * BUTTON_BORDER
-				, playButtonHeight - 2 * BUTTON_BORDER
-				, color[0], color[1], color[2]
-				);
-			drawImageCentered(playButtonTextImage, X_RES / 2, Y_RES / 2);
-
 			// Draw black selector.
 			Graphics2D.Draw.ellipse
 				( X_RES / 4 - SELECTOR_RADIUS
@@ -197,6 +203,42 @@ function main() {
 				, 255, 255, 255
 				);
 			drawImageCentered(whiteImage, 3 * X_RES / 4, Y_RES / 2);
+
+			// Draw play button.
+			Graphics2D.Draw.rectangle
+				( playButtonLeft
+				, playButtonTop
+				, playButtonWidth
+				, playButtonHeight
+				, 0, 0, 0
+				);
+			color = hoveringPlay ? [192, 192, 192] : [128, 128, 128];
+			Graphics2D.Draw.rectangle
+				( playButtonLeft + BUTTON_BORDER
+				, playButtonTop + BUTTON_BORDER
+				, playButtonWidth - 2 * BUTTON_BORDER
+				, playButtonHeight - 2 * BUTTON_BORDER
+				, color[0], color[1], color[2]
+				);
+			drawImageCentered(playButtonTextImage, X_RES / 2, Y_RES / 2);
+
+			// Draw tourney button.
+			Graphics2D.Draw.rectangle
+				( tourneyButtonLeft
+				, tourneyButtonTop
+				, tourneyButtonWidth
+				, tourneyButtonHeight
+				, 0, 0, 0
+				);
+			color = hoveringTourney ? [192, 192, 192] : [128, 128, 128];
+			Graphics2D.Draw.rectangle
+				( tourneyButtonLeft + BUTTON_BORDER
+				, tourneyButtonTop + BUTTON_BORDER
+				, tourneyButtonWidth - 2 * BUTTON_BORDER
+				, tourneyButtonHeight - 2 * BUTTON_BORDER
+				, color[0], color[1], color[2]
+				);
+			drawImageCentered(tourneyButtonTextImage, X_RES / 2, 3 * Y_RES / 4);
 		} else if (gameState == GameState.PLAYING) {
 			if (reversi.gameOver) {
 				scores = reversi.getScores();
@@ -210,6 +252,18 @@ function main() {
 							--to_remove[space];
 						}
 					}
+				}
+
+				if (tourneyMode) {
+					// Log current standings and immediately restart.
+					if (scores[BLACK] > scores[WHITE]) {
+						++blackWins;
+					} else if (scores[BLACK] < scores[WHITE]) {
+						++whiteWins;
+					}
+					print(blackWins + "/" + (whiteWins + blackWins) + " (" + 100 * blackWins / (whiteWins + blackWins) + "%)");
+					reversi = new Reversi();
+					gameState = GameState.PLAYING;
 				}
 			} else {
 				playerIdx = reversi.currentPlayer == BLACK ? 0 : 1;
