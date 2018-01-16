@@ -89,7 +89,7 @@ function main() {
 
 	tourneyMode = true;
 	blackWins = 0;
-	whiteWins = 0;
+	matches = 0;
 
 	programRunning = true;
 	while (programRunning) {
@@ -104,7 +104,7 @@ function main() {
 				if (event.key == Game.KeyboardKey.F2) {
 					// Restart game and reset stats.
 					blackWins = 0;
-					whiteWins = 0;
+					matches = 0;
 					gameState = GameState.SELECTOR;
 				} else if (event.key == Game.KeyboardKey.LEFT) {
 					input.left_arrow = true;
@@ -256,12 +256,11 @@ function main() {
 
 				if (tourneyMode) {
 					// Log current standings and immediately restart.
-					if (scores[BLACK] >= scores[WHITE]) {
+					++matches;
+					if (scores[BLACK] > scores[WHITE]) {
 						++blackWins;
-					} else if (scores[BLACK] <= scores[WHITE]) {
-						++whiteWins;
 					}
-					print(blackWins + "/" + (whiteWins + blackWins) + " (" + 100 * blackWins / (whiteWins + blackWins) + "%)");
+					print(blackWins + "/" + matches + " (" + 100 * blackWins / matches + "%)");
 					reversi = new Reversi();
 					gameState = GameState.PLAYING;
 				}

@@ -21,6 +21,18 @@ class Reversi {
 	field gameOver; // Whether the game has ended (two consecutive passes).
 	field validMoves; // The list of valid moves for the current player.
 
+	// Microsoft's Reversi heuristic position value table, via http://www.samsoft.org.uk/reversi/strategy.htm
+	static field positionValueTable =
+		[ [99,  -8,  8,  6,  6,  8,  -8, 99]
+		, [-8, -24, -4, -3, -3, -4, -24, -8]
+		, [ 8,  -4,  7,  4,  4,  7,  -4,  8]
+		, [ 6,  -3,  4,  0,  0,  4,  -3,  6]
+		, [ 6,  -3,  4,  0,  0,  4,  -3,  6]
+		, [ 8,  -4,  7,  4,  4,  7,  -4,  8]
+		, [-8, -24, -4, -3, -3, -4, -24, -8]
+		, [99,  -8,  8,  6,  6,  8,  -8, 99]
+		];
+
 	// Constructs a new instance of Reversi.
 	constructor() {
 		this.board = [];
@@ -101,86 +113,67 @@ class Reversi {
 		}
 	}
 
-	// Heuristically evaluates the board with respect to the current player.
-	function evaluateBoard()
+	// Heuristically evaluates the board, with positive values indicating advantage for the given player.
+	function evaluateBoard(player)
 	{
 		scores = this.getScores();
-		if (this.gameOver && scores[this.currentPlayer] > scores[-this.currentPlayer]) {
+		if (this.gameOver) {
 			// Winning is the best possible outcome.
-			return MAX_VALUE;
+			if (scores[player] > scores[-player]) {
+				return MAX_VALUE;
+			} else if (scores[-player] > scores[player]) {
+				return MIN_VALUE;
+			}
 		}
+
 		value = 0;
 
 		// Mobility bonus.
-		value += 2 * this.validMoves.length;
-		
+		value += 2 * player * this.currentPlayer * this.validMoves.length;
+
 		if (N == 8) {
-			// Microsoft's Reversi heuristic position value table, via http://www.samsoft.org.uk/reversi/strategy.htm
-			positionValueTable =
-				[ [99,  -8,  8,  6,  6,  8,  -8, 99]
-				, [-8, -24, -4, -3, -3, -4, -24, -8]
-				, [ 8,  -4,  7,  4,  4,  7,  -4,  8]
-				, [ 6,  -3,  4,  0,  0,  4,  -3,  6]
-				, [ 6,  -3,  4,  0,  0,  4,  -3,  6]
-				, [ 8,  -4,  7,  4,  4,  7,  -4,  8]
-				, [-8, -24, -4, -3, -3, -4, -24, -8]
-				, [99,  -8,  8,  6,  6,  8,  -8, 99]
-				];
 			for (row = 0; row < N; ++row) {
 				for (col = 0; col < N; ++col) {
 					space = this.board[row][col];
-					if (space == this.currentPlayer) {
-						value += positionValueTable[row][col];
-					} else if (space == -this.currentPlayer) {
-						value -= positionValueTable[row][col];
+					if (space == player) {
+						value += Reversi.positionValueTable[row][col];
+					} else if (space == -player) {
+						value -= Reversi.positionValueTable[row][col];
 					}
 				}
 			}
 		} else {
 			// Fall-back heuristic for non-8x8 boards.
-			value += scores[this.currentPlayer] - scores[-this.currentPlayer];
+			value += scores[player] - scores[-player];
 		}
 		return value;
 	}
 
-	// Computes the value of this game state.
-	// maximize: Whether to maximize or minimize the score for the current player.
+	// Computes the value of this game state for the given player.
+	// player: The player whose score we want to maximize.
 	// lookahead: The maximum number of recursive calls to make.
 	// alpha: The best value found so far for the player we're maximizing.
 	// beta: The worst value found so far for the player we're minimizing.
-	function getValue(maximize, lookahead, alpha, beta) {
+	function getValue(player, lookahead, alpha, beta) {
 		if (lookahead == 0 || this.gameOver) {
 			// End of recursive search. Report value based on current board state.
-			currentPlayerValue = this.evaluateBoard();
-			return maximize ? -currentPlayerValue : currentPlayerValue;
+			return this.evaluateBoard(player);
 		}
 		if (this.validMoves.length == 0) {
 			// Pass.
-			return this.clone().pass().getValue(!maximize, lookahead, alpha, beta);
+			return -this.clone().pass().getValue(-player, lookahead, -beta, -alpha);
 		}
 
-		if (maximize) {
-			// Maximize AI's value.
-			value = MIN_VALUE;
-			for (i = 0; i < this.validMoves.length; ++i) {
-				value = Math.max(value, this.clone().play(this.validMoves[i]).getValue(false, lookahead - 1, alpha, beta));
-				alpha = Math.max(alpha, value);
-				if (beta <= alpha) {
-					break;
-				}
-			}
-		} else {
-			// Minimize opponent's value.
-			value = MAX_VALUE;
-			for (i = 0; i < this.validMoves.length; ++i) {
-				value = Math.min(value, this.clone().play(this.validMoves[i]).getValue(true, lookahead - 1, alpha, beta));
-				beta = Math.min(alpha, value);
-				if (beta <= alpha) {
-					break;
-				}
+		bestValue = MIN_VALUE;
+		for (i = 0; i < this.validMoves.length; ++i) {
+			value = -this.clone().play(this.validMoves[i]).getValue(-player, lookahead - 1, -beta, -alpha);
+			bestValue = Math.max(bestValue, value);
+			alpha = Math.max(alpha, value);
+			if (beta <= alpha) {
+				//break;
 			}
 		}
-		return value;
+		return bestValue;
 	}
 
 	// Plays automatically for the current player.
@@ -200,7 +193,7 @@ class Reversi {
 				bestValue = MIN_VALUE;
 				shuffle(this.validMoves); // Break ties randomly.
 				for (i = 0; i < this.validMoves.length; ++i) {
-					currentValue = this.clone().play(this.validMoves[i]).getValue(true, lookahead, MIN_VALUE, MAX_VALUE);
+					currentValue = this.clone().play(this.validMoves[i]).getValue(this.currentPlayer, lookahead, MIN_VALUE, MAX_VALUE);
 					if (currentValue >= bestValue) {
 						bestMove = this.validMoves[i];
 						bestValue = currentValue;
