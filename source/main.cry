@@ -256,9 +256,9 @@ function main() {
 
 				if (tourneyMode) {
 					// Log current standings and immediately restart.
-					if (scores[BLACK] > scores[WHITE]) {
+					if (scores[BLACK] >= scores[WHITE]) {
 						++blackWins;
-					} else if (scores[BLACK] < scores[WHITE]) {
+					} else if (scores[BLACK] <= scores[WHITE]) {
 						++whiteWins;
 					}
 					print(blackWins + "/" + (whiteWins + blackWins) + " (" + 100 * blackWins / (whiteWins + blackWins) + "%)");
