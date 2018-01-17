@@ -21,17 +21,38 @@ class Reversi {
 	field gameOver; // Whether the game has ended (two consecutive passes).
 	field validMoves; // The list of valid moves for the current player.
 
-	// Microsoft's Reversi heuristic position value table, via http://www.samsoft.org.uk/reversi/strategy.htm
-	static field positionValueTable =
-		[ [99,  -8,  8,  6,  6,  8,  -8, 99]
-		, [-8, -24, -4, -3, -3, -4, -24, -8]
-		, [ 8,  -4,  7,  4,  4,  7,  -4,  8]
-		, [ 6,  -3,  4,  0,  0,  4,  -3,  6]
-		, [ 6,  -3,  4,  0,  0,  4,  -3,  6]
-		, [ 8,  -4,  7,  4,  4,  7,  -4,  8]
-		, [-8, -24, -4, -3, -3, -4, -24, -8]
-		, [99,  -8,  8,  6,  6,  8,  -8, 99]
+	// Based on Microsoft's Reversi heuristic position value table, via http://www.samsoft.org.uk/reversi/strategy.htm
+	static field valueTable =
+		[ [99]
+		, [-8, -24]
+		, [ 8, -4, 7]
+		, [ 6, -3, 4, 0]
+		, [ 4, -2, 1, 0, 0]
+		, [ 2, -1, 0, 0, 0, 0]
 		];
+
+	static function valueTableLookup(move) {
+		// Mirror row if needed.
+		if (move[0] >= N / 2) {
+			move[0] = N - move[0] - 1;
+		}
+		// Mirror column if needed.
+		if (move[1] >= N / 2) {
+			move[1] = N - move[1] - 1;
+		}
+		// Swap row and column if needed.
+		if (move[1] > move[0]) {
+			t = move[0];
+			move[0] = move[1];
+			move[1] = t;
+		}
+		if (move[0] < Reversi.valueTable.length && move[1] < Reversi.valueTable[move[0]].length) {
+			return Reversi.valueTable[move[0]][move[1]];
+		} else {
+			// Off the table.
+			return 0;
+		}
+	}
 
 	// Constructs a new instance of Reversi.
 	constructor() {
@@ -131,20 +152,15 @@ class Reversi {
 		// Mobility bonus.
 		value += 2 * player * this.currentPlayer * this.validMoves.length;
 
-		if (N == 8) {
-			for (row = 0; row < N; ++row) {
-				for (col = 0; col < N; ++col) {
-					space = this.board[row][col];
-					if (space == player) {
-						value += Reversi.positionValueTable[row][col];
-					} else if (space == -player) {
-						value -= Reversi.positionValueTable[row][col];
-					}
+		for (row = 0; row < N; ++row) {
+			for (col = 0; col < N; ++col) {
+				space = this.board[row][col];
+				if (space == player) {
+					value += Reversi.valueTableLookup([row, col]);
+				} else if (space == -player) {
+					value -= Reversi.valueTableLookup([row, col]);
 				}
 			}
-		} else {
-			// Fall-back heuristic for non-8x8 boards.
-			value += scores[player] - scores[-player];
 		}
 		return value;
 	}
@@ -155,29 +171,37 @@ class Reversi {
 	// alpha: The best value found so far for the player we're maximizing.
 	// beta: The worst value found so far for the player we're minimizing.
 	function getValue(player, lookahead, alpha, beta) {
+		//print("  " * (3 - lookahead) + (player == BLACK ? "Max Black" : "Max White"));
+
 		if (lookahead == 0 || this.gameOver) {
 			// End of recursive search. Report value based on current board state.
-			return this.evaluateBoard(player);
+			value = this.evaluateBoard(player);
+			//print("  " * (4 - lookahead) + "Value: " + value);
+			return value;
 		}
 		if (this.validMoves.length == 0) {
 			// Pass.
+			//print("  " * (4 - lookahead) + "Pass");
 			return -this.clone().pass().getValue(-player, lookahead, -beta, -alpha);
 		}
 
 		bestValue = MIN_VALUE;
 		for (i = 0; i < this.validMoves.length; ++i) {
 			value = -this.clone().play(this.validMoves[i]).getValue(-player, lookahead - 1, -beta, -alpha);
+			//print("  " * (4 - lookahead) + this.validMoves[i] + ": " + value);
 			bestValue = Math.max(bestValue, value);
 			alpha = Math.max(alpha, value);
 			if (beta <= alpha) {
-				//break;
+				break;
 			}
 		}
+		//print("  " * (4 - lookahead) + "Best: " + bestValue);
 		return bestValue;
 	}
 
 	// Plays automatically for the current player.
 	function autoPlay(lookahead) {
+		//print(this.currentPlayer == BLACK ? "Black" : "White");
 		if (this.validMoves.length == 0) {
 			// No valid moves. Pass.
 			this.pass();
@@ -193,10 +217,11 @@ class Reversi {
 				bestValue = MIN_VALUE;
 				shuffle(this.validMoves); // Break ties randomly.
 				for (i = 0; i < this.validMoves.length; ++i) {
-					currentValue = this.clone().play(this.validMoves[i]).getValue(this.currentPlayer, lookahead, MIN_VALUE, MAX_VALUE);
-					if (currentValue >= bestValue) {
+					//print("  Eval: " + this.validMoves[i]);
+					value = this.clone().play(this.validMoves[i]).getValue(-this.currentPlayer, lookahead, MIN_VALUE, MAX_VALUE);
+					if (value >= bestValue) {
 						bestMove = this.validMoves[i];
-						bestValue = currentValue;
+						bestValue = value;
 					}
 				}
 				this.play(bestMove);

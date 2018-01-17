@@ -8,7 +8,7 @@ const FPS = 30;
 const X_RES = 400;
 const Y_RES = 400;
 
-const N = 8;
+const N = 6;
 const MIN_VALUE = -1000000;
 const MAX_VALUE = 1000000;
 
@@ -38,7 +38,7 @@ class Input {
 	field enter = false;
 	field mouse_x = 0;
 	field mouse_y = 0;
-	
+
 	function update() {
 		this.left_click = false;
 		this.left_arrow = false;
@@ -256,9 +256,11 @@ function main() {
 
 				if (tourneyMode) {
 					// Log current standings and immediately restart.
-					++matches;
-					if (scores[BLACK] > scores[WHITE]) {
-						++blackWins;
+					if (scores[BLACK] != scores[WHITE]) {
+						++matches;
+						if (scores[BLACK] > scores[WHITE]) {
+							++blackWins;
+						}
 					}
 					print(blackWins + "/" + matches + " (" + 100 * blackWins / matches + "%)");
 					reversi = new Reversi();
