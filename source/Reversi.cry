@@ -1,17 +1,6 @@
 import Graphics2D;
 import Graphics2DText;
 import Math;
-import Random;
-
-// Fisher-Yates shuffle a list.
-function shuffle(list) {
-	for (i = 0; i < list.length - 1; ++i) {
-		j = Random.randomInt(i, list.length);
-		t = list[i];
-		list[i] = list[j];
-		list[j] = t;
-	}
-}
 
 // An instance of a game of Reversi.
 class Reversi {
@@ -21,40 +10,6 @@ class Reversi {
 	field gameOver; // Whether the game has ended (two consecutive passes).
 	field validMoves; // The list of valid moves for the current player.
 
-	// Based on Microsoft's Reversi heuristic position value table, via http://www.samsoft.org.uk/reversi/strategy.htm
-	static field valueTable =
-		[ [99]
-		, [-8, -24]
-		, [ 8, -4, 7]
-		, [ 6, -3, 4, 0]
-		, [ 4, -2, 1, 0, 0]
-		, [ 2, -1, 0, 0, 0, 0]
-		];
-
-	static function valueTableLookup(move) {
-		// Mirror row if needed.
-		if (move[0] >= N / 2) {
-			move[0] = N - move[0] - 1;
-		}
-		// Mirror column if needed.
-		if (move[1] >= N / 2) {
-			move[1] = N - move[1] - 1;
-		}
-		// Swap row and column if needed.
-		if (move[1] > move[0]) {
-			t = move[0];
-			move[0] = move[1];
-			move[1] = t;
-		}
-		if (move[0] < Reversi.valueTable.length && move[1] < Reversi.valueTable[move[0]].length) {
-			return Reversi.valueTable[move[0]][move[1]];
-		} else {
-			// Off the table.
-			return 0;
-		}
-	}
-
-	// Constructs a new instance of Reversi.
 	constructor() {
 		this.board = [];
 		for (row = 0; row < N; ++row) {
@@ -130,101 +85,6 @@ class Reversi {
 				if (this.isValidMove([row, col])) {
 					this.validMoves.add([row, col]);
 				}
-			}
-		}
-	}
-
-	// Heuristically evaluates the board, with positive values indicating advantage for the given player.
-	function evaluateBoard(player)
-	{
-		scores = this.getScores();
-		if (this.gameOver) {
-			// Winning is the best possible outcome.
-			if (scores[player] > scores[-player]) {
-				return MAX_VALUE;
-			} else if (scores[-player] > scores[player]) {
-				return MIN_VALUE;
-			}
-		}
-
-		value = 0;
-
-		// Mobility bonus.
-		value += 2 * player * this.currentPlayer * this.validMoves.length;
-
-		for (row = 0; row < N; ++row) {
-			for (col = 0; col < N; ++col) {
-				space = this.board[row][col];
-				if (space == player) {
-					value += Reversi.valueTableLookup([row, col]);
-				} else if (space == -player) {
-					value -= Reversi.valueTableLookup([row, col]);
-				}
-			}
-		}
-		return value;
-	}
-
-	// Computes the value of this game state for the given player.
-	// player: The player whose score we want to maximize.
-	// lookahead: The maximum number of recursive calls to make.
-	// alpha: The best value found so far for the player we're maximizing.
-	// beta: The worst value found so far for the player we're minimizing.
-	function getValue(player, lookahead, alpha, beta) {
-		//print("  " * (3 - lookahead) + (player == BLACK ? "Max Black" : "Max White"));
-
-		if (lookahead == 0 || this.gameOver) {
-			// End of recursive search. Report value based on current board state.
-			value = this.evaluateBoard(player);
-			//print("  " * (4 - lookahead) + "Value: " + value);
-			return value;
-		}
-		if (this.validMoves.length == 0) {
-			// Pass.
-			//print("  " * (4 - lookahead) + "Pass");
-			return -this.clone().pass().getValue(-player, lookahead, -beta, -alpha);
-		}
-
-		bestValue = MIN_VALUE;
-		for (i = 0; i < this.validMoves.length; ++i) {
-			value = -this.clone().play(this.validMoves[i]).getValue(-player, lookahead - 1, -beta, -alpha);
-			//print("  " * (4 - lookahead) + this.validMoves[i] + ": " + value);
-			bestValue = Math.max(bestValue, value);
-			alpha = Math.max(alpha, value);
-			if (beta <= alpha) {
-				break;
-			}
-		}
-		//print("  " * (4 - lookahead) + "Best: " + bestValue);
-		return bestValue;
-	}
-
-	// Plays automatically for the current player.
-	function autoPlay(lookahead) {
-		//print(this.currentPlayer == BLACK ? "Black" : "White");
-		if (this.validMoves.length == 0) {
-			// No valid moves. Pass.
-			this.pass();
-		} else if (this.validMoves.length == 1) {
-			// Only one option; no need to check its value.
-			this.play(this.validMoves[0]);
-		} else {
-			if (lookahead == -1) {
-				// Special case; choose a move blindly.
-				this.play(this.validMoves[Random.randomInt(0, this.validMoves.length)]);
-			} else {
-				// Find and play the "best" move.
-				bestValue = MIN_VALUE;
-				shuffle(this.validMoves); // Break ties randomly.
-				for (i = 0; i < this.validMoves.length; ++i) {
-					//print("  Eval: " + this.validMoves[i]);
-					value = this.clone().play(this.validMoves[i]).getValue(-this.currentPlayer, lookahead, MIN_VALUE, MAX_VALUE);
-					if (value >= bestValue) {
-						bestMove = this.validMoves[i];
-						bestValue = value;
-					}
-				}
-				this.play(bestMove);
 			}
 		}
 	}
@@ -315,16 +175,31 @@ class Reversi {
 				}
 			}
 		}
-		// Draw valid moves.
-		for (i = 0; i < this.validMoves.length; ++i) {
-			row = this.validMoves[i][0];
-			col = this.validMoves[i][1];
-			color = this.currentPlayer == BLACK ? [0, 96, 0] : [64, 160, 64];
-			left = col * CELL_WIDTH + CELL_PADDING;
-			top = row * CELL_HEIGHT + CELL_PADDING;
-			width = CELL_WIDTH - 2 * CELL_PADDING;
-			height = CELL_HEIGHT - 2 * CELL_PADDING;
-			Graphics2D.Draw.ellipse(left, top, width, height, color[0], color[1], color[2]);
+		if (this.gameOver) {
+			// TODO: Only render scores once when the game ends.
+			
+			scores = this.getScores();
+
+			blackScoreImage = Font.black.render("Black: " + scores[BLACK]);
+			whiteScoreImage = Font.white.render("White: " + scores[WHITE]);
+
+			Graphics2D.Draw.rectangle(0, 0, blackScoreImage.width, blackScoreImage.height, 255, 255, 255, 192);
+			blackScoreImage.draw(0, 0);
+			
+			Graphics2D.Draw.rectangle(0, blackScoreImage.height, whiteScoreImage.width, whiteScoreImage.height, 0, 0, 0, 192);
+			whiteScoreImage.draw(0, blackScoreImage.height);
+		} else {
+			// Draw valid moves.
+			for (i = 0; i < this.validMoves.length; ++i) {
+				row = this.validMoves[i][0];
+				col = this.validMoves[i][1];
+				color = this.currentPlayer == BLACK ? [0, 96, 0] : [64, 160, 64];
+				left = col * CELL_WIDTH + CELL_PADDING;
+				top = row * CELL_HEIGHT + CELL_PADDING;
+				width = CELL_WIDTH - 2 * CELL_PADDING;
+				height = CELL_HEIGHT - 2 * CELL_PADDING;
+				Graphics2D.Draw.ellipse(left, top, width, height, color[0], color[1], color[2]);
+			}
 		}
 	}
 }

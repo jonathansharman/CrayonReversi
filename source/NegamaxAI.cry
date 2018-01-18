@@ -1,0 +1,131 @@
+import Math;
+import Random;
+
+// A Reversi AI that uses negamax with alpha-beta pruning.
+class NegamaxAI : Player {
+	// The maximum depth of the game state tree to which this AI is allowed to search.
+	field maxLookahead;
+
+	constructor(maxLookahead) : base() {
+		this.maxLookahead = maxLookahead;
+	}
+
+	// Based on Microsoft's Reversi heuristic position value table, via http://www.samsoft.org.uk/reversi/strategy.htm
+	static field valueTable =
+		[ [99]
+		, [-8, -24]
+		, [ 8, -4, 7]
+		, [ 6, -3, 4, 0]
+		, [ 4, -2, 1, 0, 0]
+		, [ 2, -1, 0, 0, 0, 0]
+		];
+
+	// Gets the heuristic value of the given board space.
+	static function valueTableLookup(space) {
+		// Mirror row if needed.
+		if (space[0] >= N / 2) {
+			space[0] = N - space[0] - 1;
+		}
+		// Mirror column if needed.
+		if (space[1] >= N / 2) {
+			space[1] = N - space[1] - 1;
+		}
+		// Swap row and column if needed.
+		if (space[1] > space[0]) {
+			t = space[0];
+			space[0] = space[1];
+			space[1] = t;
+		}
+		if (space[0] < NegamaxAI.valueTable.length && space[1] < NegamaxAI.valueTable[space[0]].length) {
+			return NegamaxAI.valueTable[space[0]][space[1]];
+		} else {
+			// Off the table.
+			return 0;
+		}
+	}
+
+	// Heuristically evaluates the given game state, with positive values indicating advantage for the given player.
+	static function heuristicValue(game, player)
+	{
+		scores = game.getScores();
+		if (game.gameOver) {
+			// Winning is the best possible outcome.
+			if (scores[player] > scores[-player]) {
+				return MAX_VALUE;
+			} else if (scores[-player] > scores[player]) {
+				return MIN_VALUE;
+			}
+		}
+
+		value = 0;
+
+		// Mobility bonus.
+		value += 2 * player * game.currentPlayer * game.validMoves.length;
+
+		for (row = 0; row < N; ++row) {
+			for (col = 0; col < N; ++col) {
+				space = game.board[row][col];
+				if (space == player) {
+					value += NegamaxAI.valueTableLookup([row, col]);
+				} else if (space == -player) {
+					value -= NegamaxAI.valueTableLookup([row, col]);
+				}
+			}
+		}
+		return value;
+	}
+
+	// Computes the value of a game state for the given player.
+	// game: The game state to evaluate.
+	// player: The player whose score we want to maximize.
+	// lookahead: The maximum number of recursive calls to make.
+	// alpha: The best value found so far for the player we're maximizing.
+	// beta: The worst value found so far for the player we're minimizing.
+	static function evaluate(game, player, lookahead, alpha, beta) {
+		if (lookahead == 0 || game.gameOver) {
+			// End of recursive search. Report value based on current game state.
+			return NegamaxAI.heuristicValue(game, player);
+		}
+		if (game.validMoves.length == 0) {
+			// Pass.
+			return -NegamaxAI.evaluate(game.clone().pass(), -player, lookahead, -beta, -alpha);
+		}
+
+		bestValue = MIN_VALUE;
+		for (i = 0; i < game.validMoves.length; ++i) {
+			value = -NegamaxAI.evaluate(game.clone().play(game.validMoves[i]), -player, lookahead - 1, -beta, -alpha);
+			bestValue = Math.max(bestValue, value);
+			alpha = Math.max(alpha, value);
+			if (beta <= alpha) {
+				break;
+			}
+		}
+		return bestValue;
+	}
+
+	function autoPlay(game) {
+		if (game.validMoves.length == 0) {
+			// No valid moves. Pass.
+			game.pass();
+		} else if (game.validMoves.length == 1) {
+			// Only one option; no need to check its value.
+			game.play(game.validMoves[0]);
+		} else {
+			// Find and play the "best" move.
+			bestValue = MIN_VALUE;
+			Util.shuffle(game.validMoves); // Break ties randomly.
+			for (i = 0; i < game.validMoves.length; ++i) {
+				value = -NegamaxAI.evaluate(game.clone().play(game.validMoves[i]), -game.currentPlayer, this.maxLookahead, MIN_VALUE, MAX_VALUE);
+				if (value >= bestValue) {
+					bestMove = game.validMoves[i];
+					bestValue = value;
+				}
+			}
+			game.play(bestMove);
+		}
+	}
+
+	function toString() {
+		return "AI lv. " + this.maxLookahead;
+	}
+}

@@ -1,0 +1,11 @@
+// Interface for a Reversi player.
+class Player {
+	// Plays for the game's current player.
+	function autoPlay(game) {
+		Core.assert(false, "Abstract method not overridden!");
+	}
+
+	function toString() {
+		Core.assert(false, "Abstract method not overridden!");
+	}
+}

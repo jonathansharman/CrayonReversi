@@ -1,0 +1,20 @@
+import Random;
+
+// A Reversi AI that chooses a move at random.
+class RandomAI : Player {
+	constructor() : base() {}
+
+	function autoPlay(game) {
+		if (game.validMoves.length == 0) {
+			// No valid moves. Pass.
+			game.pass();
+		} else {
+			// Choose a move blindly.
+			game.play(game.validMoves[Random.randomInt(0, game.validMoves.length)]);
+		}
+	}
+
+	function toString() {
+		return "Bozo";
+	}
+}

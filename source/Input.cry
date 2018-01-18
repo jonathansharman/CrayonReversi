@@ -1,0 +1,49 @@
+import Game;
+
+// Represents input events since the last call to window.pumpEvents().
+class Input {
+	static field left_click = false;
+	static field left_arrow = false;
+	static field right_arrow = false;
+	static field down_arrow = false;
+	static field up_arrow = false;
+	static field enter = false;
+	static field f2 = false;
+	static field mouse_x = 0;
+	static field mouse_y = 0;
+
+	// Processes relevant input events and removes them from the event list.
+	static function update(eventList) {
+		Input.left_click = false;
+		Input.left_arrow = false;
+		Input.right_arrow = false;
+		Input.down_arrow = false;
+		Input.up_arrow = false;
+		Input.enter = false;
+		Input.f2 = false;
+
+		for (i = 0; i < eventList.length; i++) {
+			event = eventList[i];
+			if (event.type == Game.EventType.KEY_DOWN) {
+				if (event.key == Game.KeyboardKey.F2) {
+					Input.f2 = true;
+				} else if (event.key == Game.KeyboardKey.LEFT) {
+					Input.left_arrow = true;
+				} else if (event.key == Game.KeyboardKey.RIGHT) {
+					Input.right_arrow = true;
+				} else if (event.key == Game.KeyboardKey.UP) {
+					Input.up_arrow = true;
+				} else if (event.key == Game.KeyboardKey.DOWN) {
+					Input.down_arrow = true;
+				} else if (event.key == Game.KeyboardKey.ENTER) {
+					Input.enter = true;
+				}
+			} else if (event.type == Game.EventType.MOUSE_LEFT_DOWN) {
+				Input.left_click = true;
+			} else if (event.type == Game.EventType.MOUSE_MOVE) {
+				Input.mouse_x = event.x;
+				Input.mouse_y = event.y;
+			}
+		}
+	}
+}
