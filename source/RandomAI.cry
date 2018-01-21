@@ -4,7 +4,7 @@ import Random;
 class RandomAI : Player {
 	constructor() : base() {}
 
-	function autoPlay(game) {
+	function makeMove(game) {
 		if (game.validMoves.length == 0) {
 			// No valid moves. Pass.
 			game.pass();

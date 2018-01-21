@@ -1,13 +1,11 @@
-import Graphics2D;
-import Graphics2DText;
 import Math;
 
 // An instance of a game of Reversi.
 class Reversi {
 	field board; // The game board as a 2D array of pieces: EMPTY, BLACK, or WHITE.
-	field currentPlayer; // BLACK or WHITE.
-	field passed; // Whether the previous move was a pass.
-	field gameOver; // Whether the game has ended (two consecutive passes).
+	field currentPlayer = BLACK; // BLACK or WHITE.
+	field passed = false; // Whether the previous move was a pass.
+	field gameOver = false; // Whether the game has ended (two consecutive passes).
 	field validMoves; // The list of valid moves for the current player.
 
 	constructor() {
@@ -23,9 +21,6 @@ class Reversi {
 		this.board[N / 2 - 1][N / 2] = BLACK;
 		this.board[N / 2][N / 2] = WHITE;
 
-		this.currentPlayer = BLACK;
-		this.passed = false;
-		this.gameOver = false;
 		this.refreshValidMoves();
 	}
 
@@ -152,54 +147,5 @@ class Reversi {
 			}
 		}
 		return score;
-	}
-
-	// Draws the game board and move hints.
-	function draw() {
-		Graphics2D.Draw.fill(0, 64, 0);
-		// Draw the board and pieces.
-		for (row = 0; row < N; ++row) {
-			for (col = 0; col < N; ++col) {
-				// Draw box.
-				left = 1 + col * CELL_WIDTH;
-				top = 1 + row * CELL_HEIGHT;
-				Graphics2D.Draw.rectangle(left, top, CELL_WIDTH - 2, CELL_HEIGHT - 2, 0, 128, 0);
-				// Draw piece.
-				if (this.board[row][col] != 0) {
-					left = col * CELL_WIDTH + CELL_PADDING;
-					top = row * CELL_HEIGHT + CELL_PADDING;
-					width = CELL_WIDTH - 2 * CELL_PADDING;
-					height = CELL_HEIGHT - 2 * CELL_PADDING;
-					color = this.board[row][col] == BLACK ? [0, 0, 0] : [255, 255, 255];
-					Graphics2D.Draw.ellipse(left, top, width, height, color[0], color[1], color[2]);
-				}
-			}
-		}
-		if (this.gameOver) {
-			// TODO: Only render scores once when the game ends.
-			
-			scores = this.getScores();
-
-			blackScoreImage = Font.black.render("Black: " + scores[BLACK]);
-			whiteScoreImage = Font.white.render("White: " + scores[WHITE]);
-
-			Graphics2D.Draw.rectangle(0, 0, blackScoreImage.width, blackScoreImage.height, 255, 255, 255, 192);
-			blackScoreImage.draw(0, 0);
-			
-			Graphics2D.Draw.rectangle(0, blackScoreImage.height, whiteScoreImage.width, whiteScoreImage.height, 0, 0, 0, 192);
-			whiteScoreImage.draw(0, blackScoreImage.height);
-		} else {
-			// Draw valid moves.
-			for (i = 0; i < this.validMoves.length; ++i) {
-				row = this.validMoves[i][0];
-				col = this.validMoves[i][1];
-				color = this.currentPlayer == BLACK ? [0, 96, 0] : [64, 160, 64];
-				left = col * CELL_WIDTH + CELL_PADDING;
-				top = row * CELL_HEIGHT + CELL_PADDING;
-				width = CELL_WIDTH - 2 * CELL_PADDING;
-				height = CELL_HEIGHT - 2 * CELL_PADDING;
-				Graphics2D.Draw.ellipse(left, top, width, height, color[0], color[1], color[2]);
-			}
-		}
 	}
 }

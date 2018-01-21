@@ -28,12 +28,6 @@ const WHITE = -1;
 
 enum GameState { SELECTOR, PLAYING }
 
-function drawImageCentered(image, x, y) {
-	left = x - image.width / 2;
-	top = y - image.height / 2;
-	image.draw(left, top);
-}
-
 function distanceSquared(p1, p2) {
 	return (p2[0] - p1[0]) ** 2 + (p2[1] - p1[1]) ** 2;
 }
@@ -43,17 +37,17 @@ function main() {
 
 	gameState = GameState.SELECTOR;
 	// Each player is either "human" or an integer representing an AI level.
-	players = {BLACK: new Human(), WHITE: new NegamaxAI(MAX_LOOKAHEAD / 2)};
+	players = {BLACK: new Human(), WHITE: new RandomAI()};
 
 	titleImage = Font.title.render("Reversi");
 	gameOverImage = Font.white.render("Game Over");
 	playButtonTextImage = Font.white.render("Play!");
 	tourneyButtonTextImage = Font.white.render("Tourney");
+	restartImage = Font.yellow.render("Press F2 to return to menu");
 
-	blackImage = Font.white.render(players[BLACK].toString());
-	whiteImage = Font.black.render(players[WHITE].toString());
+	blackPlayerImage  = Font.white.render(players[BLACK].toString());
+	whitePlayerImage = Font.black.render(players[WHITE].toString());
 
-	tourneyMode = true;
 	blackWins = 0;
 	matches = 0;
 
@@ -100,14 +94,21 @@ function main() {
 
 			if (Input.left_click) {
 				if (hoveringPlay) {
+					blackScoreImage = Font.white.render(players[BLACK].toString());
+					whiteScoreImage = Font.black.render(players[WHITE].toString());
+
 					reversi = new Reversi();
+					reversiRenderer = new ReversiRenderer(reversi);
 					gameState = GameState.PLAYING;
 					tourneyMode = false;
 				} else if (hoveringTourney) {
+					blackScoreImage = Font.white.render(players[BLACK].toString());
+					whiteScoreImage = Font.black.render(players[WHITE].toString());
+
 					reversi = new Reversi();
+					reversiRenderer = new ReversiRenderer(reversi);
 					gameState = GameState.PLAYING;
 					tourneyMode = true;
-					print(players[BLACK].toString() + " vs. " + players[WHITE].toString() + "!");
 				} else if (distanceSquared([Input.mouse_x, Input.mouse_y], [X_RES / 4, Y_RES / 2]) < SELECTOR_RADIUS ** 2) {
 					name = players[BLACK].toString();
 					if (name == "Human") {
@@ -119,7 +120,7 @@ function main() {
 					} else {
 						++players[BLACK].maxLookahead;
 					}
-					blackImage = Font.white.render(players[BLACK].toString());
+					blackPlayerImage  = Font.white.render(players[BLACK].toString());
 				} else if (distanceSquared([Input.mouse_x, Input.mouse_y], [3 * X_RES / 4, Y_RES / 2]) < SELECTOR_RADIUS ** 2) {
 					name = players[WHITE].toString();
 					if (name == "Human") {
@@ -131,14 +132,14 @@ function main() {
 					} else {
 						++players[WHITE].maxLookahead;
 					}
-					whiteImage = Font.black.render(players[WHITE].toString());
+					whitePlayerImage = Font.black.render(players[WHITE].toString());
 				}
 			}
 
 			Graphics2D.Draw.fill(0, 128, 0);
 			
 			// Draw title.
-			drawImageCentered(titleImage, X_RES / 2, Y_RES / 4);
+			new Drawing().setImage(titleImage).setPos(X_RES / 2, Y_RES / 4).alignCenter().alignMiddle().draw();
 
 			// Draw black selector.
 			Graphics2D.Draw.ellipse
@@ -148,7 +149,7 @@ function main() {
 				, 2 * SELECTOR_RADIUS
 				, 0, 0, 0
 				);
-			drawImageCentered(blackImage, X_RES / 4, Y_RES / 2);
+			new Drawing().setImage(blackPlayerImage).setPos(X_RES / 4, Y_RES / 2).alignCenter().alignMiddle().draw();
 
 			// Draw white selector.
 			Graphics2D.Draw.ellipse
@@ -158,7 +159,7 @@ function main() {
 				, 2 * SELECTOR_RADIUS
 				, 255, 255, 255
 				);
-			drawImageCentered(whiteImage, 3 * X_RES / 4, Y_RES / 2);
+			new Drawing().setImage(whitePlayerImage).setPos(3 * X_RES / 4, Y_RES / 2).alignCenter().alignMiddle().draw();
 
 			// Draw play button.
 			Graphics2D.Draw.rectangle
@@ -168,15 +169,15 @@ function main() {
 				, playButtonHeight
 				, 0, 0, 0
 				);
-			color = hoveringPlay ? [192, 192, 192] : [128, 128, 128];
+			color = hoveringPlay ? Color.silver() : Color.gray();
 			Graphics2D.Draw.rectangle
 				( playButtonLeft + BUTTON_BORDER
 				, playButtonTop + BUTTON_BORDER
 				, playButtonWidth - 2 * BUTTON_BORDER
 				, playButtonHeight - 2 * BUTTON_BORDER
-				, color[0], color[1], color[2]
+				, color.r, color.g, color.b
 				);
-			drawImageCentered(playButtonTextImage, X_RES / 2, Y_RES / 2);
+			new Drawing().setImage(playButtonTextImage).setPos(X_RES / 2, Y_RES / 2).alignCenter().alignMiddle().draw();
 
 			// Draw tourney button.
 			Graphics2D.Draw.rectangle
@@ -186,39 +187,63 @@ function main() {
 				, tourneyButtonHeight
 				, 0, 0, 0
 				);
-			color = hoveringTourney ? [192, 192, 192] : [128, 128, 128];
+			color = hoveringTourney ? Color.silver() : Color.gray();
 			Graphics2D.Draw.rectangle
 				( tourneyButtonLeft + BUTTON_BORDER
 				, tourneyButtonTop + BUTTON_BORDER
 				, tourneyButtonWidth - 2 * BUTTON_BORDER
 				, tourneyButtonHeight - 2 * BUTTON_BORDER
-				, color[0], color[1], color[2]
+				, color.r, color.g, color.b
 				);
-			drawImageCentered(tourneyButtonTextImage, X_RES / 2, 3 * Y_RES / 4);
+			new Drawing().setImage(tourneyButtonTextImage).setPos(X_RES / 2, 3 * Y_RES / 4).alignCenter().alignMiddle().draw();
 		} else if (gameState == GameState.PLAYING) {
 			if (reversi.gameOver) {
+				scores = reversi.getScores();
 				if (tourneyMode) {
-					// Log current standings and immediately restart.
-					scores = reversi.getScores();
+					// Update standings and immediately restart.
 					if (scores[BLACK] != scores[WHITE]) {
 						++matches;
 						if (scores[BLACK] > scores[WHITE]) {
 							++blackWins;
 						}
-						print(blackWins + "/" + matches + " (" + 100 * blackWins / matches + "%)");
+					}					
+
+					blackScoreText = players[BLACK].toString();
+					if (matches > 0) {
+						blackScoreText += ": " + blackWins + "/" + matches + " (" + 100 * blackWins / matches + "%)";
 					}
+					blackScoreImage = Font.white.render(blackScoreText);
+
+					whiteScoreText = players[WHITE].toString();
+					if (matches > 0) {
+						whiteScoreText += ": " + (matches - blackWins) + "/" + matches + " (" + 100 * (matches - blackWins) / matches + "%)";
+					}
+					whiteScoreImage = Font.black.render(whiteScoreText);
+
 					reversi = new Reversi();
+					reversiRenderer = new ReversiRenderer(reversi);
 					gameState = GameState.PLAYING;
+				} else {
+					blackScoreImage = Font.white.render(players[BLACK].toString() + ": " + scores[BLACK]);
+					whiteScoreImage = Font.black.render(players[WHITE].toString() + ": " + scores[WHITE]);
 				}
 			} else {
-				players[reversi.currentPlayer].autoPlay(reversi);
+				players[reversi.currentPlayer].makeMove(reversi);
 			}
-			reversi.draw();
-		}
-		if (tourneyMode && matches > 0) {
-			standingsImage = Font.white.render(blackWins + "/" + matches + " (" + 100 * blackWins / matches + "%)");
-			Graphics2D.Draw.rectangle(0, 0, standingsImage.width, standingsImage.height, 0, 0, 0, 192);
-			standingsImage.draw(0, 0);
+
+			reversiRenderer.draw();
+
+			if (reversi.gameOver || tourneyMode) {
+				new Drawing().setImage(blackScoreImage).setPos(0, 0).setBgColor(Color.black(192)).draw();
+				new Drawing().setImage(whiteScoreImage).setPos(0, blackScoreImage.height).setBgColor(Color.white(192)).draw();
+				new Drawing()
+					.setImage(restartImage)
+					.setPos(X_RES / 2, Y_RES)
+					.alignCenter()
+					.alignBottom()
+					.setBgColor(Color.black(192))
+					.draw();
+			}
 		}
 		window.clockTick();
 	}

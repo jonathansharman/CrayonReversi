@@ -1,0 +1,47 @@
+import Graphics2D;
+import Graphics2DText;
+
+// Draws a Reversi board.
+class ReversiRenderer {
+	field reversi;
+
+	constructor(reversi) {
+		this.reversi = reversi;
+	}
+
+	// Draws the given Reversi game.
+	function draw() {
+		Graphics2D.Draw.fill(0, 64, 0);
+		// Draw the board and pieces.
+		for (row = 0; row < N; ++row) {
+			for (col = 0; col < N; ++col) {
+				// Draw box.
+				left = 1 + col * CELL_WIDTH;
+				top = 1 + row * CELL_HEIGHT;
+				Graphics2D.Draw.rectangle(left, top, CELL_WIDTH - 2, CELL_HEIGHT - 2, 0, 128, 0);
+				// Draw piece.
+				if (this.reversi.board[row][col] != 0) {
+					left = col * CELL_WIDTH + CELL_PADDING;
+					top = row * CELL_HEIGHT + CELL_PADDING;
+					width = CELL_WIDTH - 2 * CELL_PADDING;
+					height = CELL_HEIGHT - 2 * CELL_PADDING;
+					color = this.reversi.board[row][col] == BLACK ? Color.black() : Color.white();
+					Graphics2D.Draw.ellipse(left, top, width, height, color.r, color.g, color.b);
+				}
+			}
+		}
+		if (!this.reversi.gameOver) {
+			// Draw valid moves.
+			for (i = 0; i < this.reversi.validMoves.length; ++i) {
+				row = this.reversi.validMoves[i][0];
+				col = this.reversi.validMoves[i][1];
+				color = this.reversi.currentPlayer == BLACK ? [0, 96, 0] : [64, 160, 64];
+				left = col * CELL_WIDTH + CELL_PADDING;
+				top = row * CELL_HEIGHT + CELL_PADDING;
+				width = CELL_WIDTH - 2 * CELL_PADDING;
+				height = CELL_HEIGHT - 2 * CELL_PADDING;
+				Graphics2D.Draw.ellipse(left, top, width, height, color[0], color[1], color[2]);
+			}
+		}
+	}
+}
