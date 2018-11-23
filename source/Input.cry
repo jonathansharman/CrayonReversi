@@ -1,6 +1,6 @@
 import Game;
 
-// Represents input events since the last call to window.pumpEvents().
+// A holdover from before the TwoCans API existed. Represents input events since the last update.
 class Input {
 	static field left_click = false;
 	static field left_arrow = false;
@@ -8,42 +8,22 @@ class Input {
 	static field down_arrow = false;
 	static field up_arrow = false;
 	static field enter = false;
-	static field f2 = false;
+	static field esc = false;
 	static field mouse_x = 0;
 	static field mouse_y = 0;
 
-	// Processes relevant input events and removes them from the event list.
-	static function update(eventList) {
-		Input.left_click = false;
-		Input.left_arrow = false;
-		Input.right_arrow = false;
-		Input.down_arrow = false;
-		Input.up_arrow = false;
-		Input.enter = false;
-		Input.f2 = false;
+	// Updates input according to the inputManager.
+	static function update(inputManager) {
+		Input.left_click = inputManager.didMouseClickHere(0, 0, X_RES, Y_RES);
+		Input.left_arrow = inputManager.isKeyPressedThisFrame(KeyboardKey.LEFT);
+		Input.right_arrow = inputManager.isKeyPressedThisFrame(KeyboardKey.RIGHT);
+		Input.down_arrow = inputManager.isKeyPressedThisFrame(KeyboardKey.DOWN);
+		Input.up_arrow = inputManager.isKeyPressedThisFrame(KeyboardKey.UP);
+		Input.enter = inputManager.isKeyPressedThisFrame(KeyboardKey.ENTER);
+		Input.esc = inputManager.isKeyPressedThisFrame(KeyboardKey.ESCAPE);
 
-		for (i = 0; i < eventList.length; i++) {
-			event = eventList[i];
-			if (event.type == Game.EventType.KEY_DOWN) {
-				if (event.key == Game.KeyboardKey.F2) {
-					Input.f2 = true;
-				} else if (event.key == Game.KeyboardKey.LEFT) {
-					Input.left_arrow = true;
-				} else if (event.key == Game.KeyboardKey.RIGHT) {
-					Input.right_arrow = true;
-				} else if (event.key == Game.KeyboardKey.UP) {
-					Input.up_arrow = true;
-				} else if (event.key == Game.KeyboardKey.DOWN) {
-					Input.down_arrow = true;
-				} else if (event.key == Game.KeyboardKey.ENTER) {
-					Input.enter = true;
-				}
-			} else if (event.type == Game.EventType.MOUSE_LEFT_DOWN) {
-				Input.left_click = true;
-			} else if (event.type == Game.EventType.MOUSE_MOVE) {
-				Input.mouse_x = event.x;
-				Input.mouse_y = event.y;
-			}
-		}
+		mousePosition = inputManager.getMousePosition();
+		Input.mouse_x = mousePosition[0];
+		Input.mouse_y = mousePosition[1];
 	}
 }

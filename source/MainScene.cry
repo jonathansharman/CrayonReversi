@@ -1,0 +1,250 @@
+import Game;
+import Graphics2D;
+import Math;
+import Random;
+import TwoCansAlpha2;
+
+const X_RES = 400;
+const Y_RES = 400;
+
+const N = 8;
+const MIN_VALUE = -1000000;
+const MAX_VALUE = 1000000;
+
+const CELL_WIDTH = X_RES / N;
+const CELL_HEIGHT = Y_RES / N;
+
+const CELL_PADDING = 5;
+
+const BUTTON_PADDING = 10;
+const BUTTON_BORDER = 3;
+const SELECTOR_RADIUS = 30;
+
+const MAX_LOOKAHEAD = 4;
+
+const EMPTY = 0;
+const BLACK = 1;
+const WHITE = -1;
+
+enum GameState { SELECTOR, PLAYING }
+
+function distanceSquared(p1, p2) {
+	return (p2[0] - p1[0]) ** 2 + (p2[1] - p1[1]) ** 2;
+}
+
+class MainScene : AbstractScene {
+	field gameState = GameState.SELECTOR;
+	field players = {BLACK: new Human(), WHITE: new RandomAI()};
+
+	field titleImage = Font.title.render("Reversi");
+	field gameOverImage = Font.white.render("Game Over");
+	field playButtonTextImage = Font.white.render("Play!");
+	field tourneyButtonTextImage = Font.white.render("Tourney");
+	field restartImage = Font.yellow.render("Press ESC to return to menu");
+
+	field blackPlayerImage;
+	field whitePlayerImage;
+
+	field blackScoreImage;
+	field whiteScoreImage;
+
+	field blackWins = 0;
+	field matches = 0;
+
+	field reversi;
+	field reversiRenderer;
+	field tourneyMode;
+
+	constructor() : base() {
+		this.blackPlayerImage = Font.white.render(this.players[BLACK].toString());
+		this.whitePlayerImage = Font.black.render(this.players[WHITE].toString());
+	}
+
+	function update(inputManager, events) {
+		Input.update(inputManager);
+
+		if (Input.esc) {
+			// Restart game and reset stats.
+			this.blackWins = 0;
+			this.matches = 0;
+			this.gameState = GameState.SELECTOR;
+		}
+
+		if (this.gameState == GameState.SELECTOR) {
+			playButtonLeft = X_RES / 2 - this.playButtonTextImage.width / 2 - BUTTON_PADDING;
+			playButtonTop = Y_RES / 2 - this.playButtonTextImage.height / 2 - BUTTON_PADDING;
+			playButtonWidth = this.playButtonTextImage.width + 2 * BUTTON_PADDING;
+			playButtonHeight = this.playButtonTextImage.height + 2 * BUTTON_PADDING;
+
+			tourneyButtonLeft = X_RES / 2 - this.tourneyButtonTextImage.width / 2 - BUTTON_PADDING;
+			tourneyButtonTop = 3 * Y_RES / 4 - this.tourneyButtonTextImage.height / 2 - BUTTON_PADDING;
+			tourneyButtonWidth = this.tourneyButtonTextImage.width + 2 * BUTTON_PADDING;
+			tourneyButtonHeight = this.tourneyButtonTextImage.height + 2 * BUTTON_PADDING;
+
+			hoveringPlay = true;
+			hoveringPlay = hoveringPlay && Input.mouse_x >= playButtonLeft;
+			hoveringPlay = hoveringPlay && Input.mouse_x < playButtonLeft + this.playButtonTextImage.width + 2 * BUTTON_PADDING;
+			hoveringPlay = hoveringPlay && Input.mouse_y >= playButtonTop;
+			hoveringPlay = hoveringPlay && Input.mouse_y < playButtonTop + this.playButtonTextImage.height + 2 * BUTTON_PADDING;
+
+			hoveringTourney = true;
+			hoveringTourney = hoveringTourney && Input.mouse_x >= tourneyButtonLeft;
+			hoveringTourney = hoveringTourney && Input.mouse_x < tourneyButtonLeft + this.tourneyButtonTextImage.width + 2 * BUTTON_PADDING;
+			hoveringTourney = hoveringTourney && Input.mouse_y >= tourneyButtonTop;
+			hoveringTourney = hoveringTourney && Input.mouse_y < tourneyButtonTop + this.tourneyButtonTextImage.height + 2 * BUTTON_PADDING;
+
+			if (Input.left_click) {
+				if (hoveringPlay) {
+					this.blackScoreImage = Font.white.render(this.players[BLACK].toString());
+					this.whiteScoreImage = Font.black.render(this.players[WHITE].toString());
+
+					this.reversi = new Reversi();
+					this.reversiRenderer = new ReversiRenderer(this.reversi);
+					this.gameState = GameState.PLAYING;
+					this.tourneyMode = false;
+				} else if (hoveringTourney) {
+					this.blackScoreImage = Font.white.render(this.players[BLACK].toString());
+					this.whiteScoreImage = Font.black.render(this.players[WHITE].toString());
+
+					this.reversi = new Reversi();
+					this.reversiRenderer = new ReversiRenderer(this.reversi);
+					this.gameState = GameState.PLAYING;
+					this.tourneyMode = true;
+				} else if (distanceSquared([Input.mouse_x, Input.mouse_y], [X_RES / 4, Y_RES / 2]) < SELECTOR_RADIUS ** 2) {
+					name = this.players[BLACK].toString();
+					if (name == "Human") {
+						this.players[BLACK] = new RandomAI();
+					} else if (name == "Bozo") {
+						this.players[BLACK] = new NegamaxAI(0);
+					} else if (this.players[BLACK].maxLookahead == MAX_LOOKAHEAD) {
+						this.players[BLACK] = new Human();
+					} else {
+						++this.players[BLACK].maxLookahead;
+					}
+					this.blackPlayerImage = Font.white.render(this.players[BLACK].toString());
+				} else if (distanceSquared([Input.mouse_x, Input.mouse_y], [3 * X_RES / 4, Y_RES / 2]) < SELECTOR_RADIUS ** 2) {
+					name = this.players[WHITE].toString();
+					if (name == "Human") {
+						this.players[WHITE] = new RandomAI();
+					} else if (name == "Bozo") {
+						this.players[WHITE] = new NegamaxAI(0);
+					} else if (this.players[WHITE].maxLookahead == MAX_LOOKAHEAD) {
+						this.players[WHITE] = new Human();
+					} else {
+						++this.players[WHITE].maxLookahead;
+					}
+					this.whitePlayerImage = Font.black.render(this.players[WHITE].toString());
+				}
+			}
+
+			Graphics2D.Draw.fill(0, 128, 0);
+			
+			// Draw title.
+			new Drawing().setImage(this.titleImage).setPos(X_RES / 2, Y_RES / 4).alignCenter().alignMiddle().draw();
+
+			// Draw black selector.
+			Graphics2D.Draw.ellipse
+				( X_RES / 4 - SELECTOR_RADIUS
+				, Y_RES / 2 - SELECTOR_RADIUS
+				, 2 * SELECTOR_RADIUS
+				, 2 * SELECTOR_RADIUS
+				, 0, 0, 0
+				);
+			new Drawing().setImage(this.blackPlayerImage).setPos(X_RES / 4, Y_RES / 2).alignCenter().alignMiddle().draw();
+
+			// Draw white selector.
+			Graphics2D.Draw.ellipse
+				( 3 * X_RES / 4 - SELECTOR_RADIUS
+				, Y_RES / 2 - SELECTOR_RADIUS
+				, 2 * SELECTOR_RADIUS
+				, 2 * SELECTOR_RADIUS
+				, 255, 255, 255
+				);
+			new Drawing().setImage(this.whitePlayerImage).setPos(3 * X_RES / 4, Y_RES / 2).alignCenter().alignMiddle().draw();
+
+			// Draw play button.
+			Graphics2D.Draw.rectangle
+				( playButtonLeft
+				, playButtonTop
+				, playButtonWidth
+				, playButtonHeight
+				, 0, 0, 0
+				);
+			color = hoveringPlay ? Color.silver() : Color.gray();
+			Graphics2D.Draw.rectangle
+				( playButtonLeft + BUTTON_BORDER
+				, playButtonTop + BUTTON_BORDER
+				, playButtonWidth - 2 * BUTTON_BORDER
+				, playButtonHeight - 2 * BUTTON_BORDER
+				, color.r, color.g, color.b
+				);
+			new Drawing().setImage(this.playButtonTextImage).setPos(X_RES / 2, Y_RES / 2).alignCenter().alignMiddle().draw();
+
+			// Draw tourney button.
+			Graphics2D.Draw.rectangle
+				( tourneyButtonLeft
+				, tourneyButtonTop
+				, tourneyButtonWidth
+				, tourneyButtonHeight
+				, 0, 0, 0
+				);
+			color = hoveringTourney ? Color.silver() : Color.gray();
+			Graphics2D.Draw.rectangle
+				( tourneyButtonLeft + BUTTON_BORDER
+				, tourneyButtonTop + BUTTON_BORDER
+				, tourneyButtonWidth - 2 * BUTTON_BORDER
+				, tourneyButtonHeight - 2 * BUTTON_BORDER
+				, color.r, color.g, color.b
+				);
+			new Drawing().setImage(this.tourneyButtonTextImage).setPos(X_RES / 2, 3 * Y_RES / 4).alignCenter().alignMiddle().draw();
+		} else if (this.gameState == GameState.PLAYING) {
+			if (this.reversi.gameOver) {
+				scores = this.reversi.getScores();
+				if (this.tourneyMode) {
+					// Update standings and immediately restart.
+					if (scores[BLACK] != scores[WHITE]) {
+						++this.matches;
+						if (scores[BLACK] > scores[WHITE]) {
+							++this.blackWins;
+						}
+					}					
+
+					blackScoreText = this.players[BLACK].toString();
+					if (this.matches > 0) {
+						blackScoreText += ": " + this.blackWins + "/" + this.matches + " (" + 100 * this.blackWins / this.matches + "%)";
+					}
+					this.blackScoreImage = Font.white.render(blackScoreText);
+
+					whiteScoreText = this.players[WHITE].toString();
+					if (this.matches > 0) {
+						whiteScoreText += ": " + (this.matches - this.blackWins) + "/" + this.matches + " (" + 100 * (this.matches - this.blackWins) / this.matches + "%)";
+					}
+					this.whiteScoreImage = Font.black.render(whiteScoreText);
+
+					this.reversi = new Reversi();
+					this.reversiRenderer = new ReversiRenderer(this.reversi);
+					this.gameState = GameState.PLAYING;
+				} else {
+					this.blackScoreImage = Font.white.render(this.players[BLACK].toString() + ": " + scores[BLACK]);
+					this.whiteScoreImage = Font.black.render(this.players[WHITE].toString() + ": " + scores[WHITE]);
+				}
+			} else {
+				this.players[this.reversi.currentPlayer].makeMove(this.reversi);
+			}
+
+			this.reversiRenderer.draw();
+
+			if (this.reversi.gameOver || this.tourneyMode) {
+				new Drawing().setImage(this.blackScoreImage).setPos(0, 0).setBgColor(Color.black(192)).draw();
+				new Drawing().setImage(this.whiteScoreImage).setPos(0, this.blackScoreImage.height).setBgColor(Color.white(192)).draw();
+				new Drawing()
+					.setImage(this.restartImage)
+					.setPos(X_RES / 2, Y_RES)
+					.alignCenter()
+					.alignBottom()
+					.setBgColor(Color.black(192))
+					.draw();
+			}
+		}
+	}
+}
