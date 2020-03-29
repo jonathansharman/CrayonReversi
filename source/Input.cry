@@ -1,4 +1,4 @@
-import Game;
+import TwoCansAlpha4;
 
 // A holdover from before the TwoCans API existed. Represents input events since the last update.
 class Input {
