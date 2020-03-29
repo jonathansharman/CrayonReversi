@@ -1,8 +1,7 @@
-import Game;
 import Graphics2D;
 import Math;
 import Random;
-import TwoCansAlpha2;
+import TwoCansAlpha4;
 
 const X_RES = 400;
 const Y_RES = 400;
